@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Meridian — inventory, invoicing and accounting powered by COBOL."
+    />
+    <title>Meridian · Operations console</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="/" aria-label="Meridian home"
+        ><span class="brandmark">M</span
+        ><span>meridian<span class="brand-sub">OPERATIONS SUITE</span></span></a
+      >
+      <div class="workspace">
+        <span class="workspace-icon">M</span>
+        <div>Local workspace<small>Inventory &amp; accounting</small></div>
+        <span class="workspace-dot"></span>
+      </div>
+      <p class="nav-label">WORKSPACE</p>
+      <nav aria-label="Main navigation">
+        <button class="nav-item active" data-view="overview">
+          <span class="nav-symbol">◫</span>Overview
+        </button>
+        <button class="nav-item" data-view="accounts">
+          <span class="nav-symbol">▤</span>General ledger
+        </button>
+        <button class="nav-item" data-view="inventory">
+          <span class="nav-symbol">▧</span>Inventory
+        </button>
+        <button class="nav-item" data-view="customers">
+          <span class="nav-symbol">◎</span>Customers
+        </button>
+        <button class="nav-item" data-view="invoices">
+          <span class="nav-symbol">▱</span>Invoices
+        </button>
+        <button class="nav-item" data-view="reports">
+          <span class="nav-symbol">▥</span>Reports
+        </button>
+      </nav>
+      <p class="nav-label">TOOLS</p>
+      <nav aria-label="Tools">
+        <button class="nav-item" data-view="compose">
+          <span class="nav-symbol">＋</span>Transaction desk</button
+        ><button class="nav-item" id="connection-button">
+          <span class="nav-symbol">⌁</span>Connection
+        </button>
+      </nav>
+      <div class="sidebar-foot">
+        <span class="engine-dot" id="engine-dot"></span>
+        <div>COBOL engine<small id="sidebar-status">Connecting</small></div>
+        <span class="engine-tag">LOCAL</span>
+      </div>
+    </aside>
+    <div class="main-shell">
+      <header class="topbar">
+        <button
+          id="menu-button"
+          class="icon-button mobile-only"
+          aria-label="Toggle navigation"
+          aria-expanded="false"
+        >
+          ☰
+        </button>
+        <div class="breadcrumb">
+          Workspace <span>/</span> <strong id="breadcrumb-view">Overview</strong>
+        </div>
+        <div class="topbar-right">
+          <span class="status-chip" id="status-chip">Checking engine</span
+          ><button class="icon-button" id="refresh-button" aria-label="Refresh current view">
+            ↻</button
+          ><span class="avatar">M</span>
+        </div>
+      </header>
+      <main>
+        <div class="page-head">
+          <div>
+            <p class="eyebrow" id="page-eyebrow">YOUR BUSINESS, IN BALANCE</p>
+            <h1 id="page-title">Operations overview</h1>
+            <p class="page-description" id="page-description">
+              A clear view of your ledger, inventory and receivables.
+            </p>
+          </div>
+          <button class="primary-button" id="new-transaction">＋ New transaction</button>
+        </div>
+        <div class="notice" id="notice" role="status" hidden></div>
+        <section id="overview-view" class="view">
+          <div class="metrics" id="metrics">
+            <article class="metric">
+              <span>Ledger entries</span><strong id="metric-entries">—</strong
+              ><small>Posted double-entry transactions</small>
+            </article>
+            <article class="metric">
+              <span>Inventory items</span><strong id="metric-items">—</strong
+              ><small>Registered stock keeping units</small>
+            </article>
+            <article class="metric">
+              <span>Invoices</span><strong id="metric-invoices">—</strong
+              ><small>Draft, open and settled documents</small>
+            </article>
+            <article class="metric">
+              <span>Net result</span><strong id="metric-result">—</strong
+              ><small>Revenue less expenses · minor units</small>
+            </article>
+          </div>
+          <div class="overview-grid">
+            <section class="panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">GENERAL LEDGER</p>
+                  <h2>Account balances</h2>
+                </div>
+                <button class="text-button" data-go="accounts">View ledger ↗</button>
+              </div>
+              <div id="overview-balances" class="table-container"></div>
+            </section>
+            <section class="panel balance-panel">
+              <p class="eyebrow">CONTROL CENTER</p>
+              <h2>Built for consistency.</h2>
+              <p>
+                Every posting is balanced. Inventory issues and invoice postings commit together.
+                The journal preserves each accepted operation.
+              </p>
+              <div class="control-list">
+                <div>
+                  <span>01</span><strong>Record a transaction</strong
+                  ><small>Validated by the COBOL engine</small>
+                </div>
+                <div>
+                  <span>02</span><strong>Review the journal</strong
+                  ><small>Trace references and reversals</small>
+                </div>
+                <div>
+                  <span>03</span><strong>Close the period</strong
+                  ><small>Protect prior posting dates</small>
+                </div>
+              </div>
+              <button class="secondary-button" data-go="compose">Open transaction desk →</button>
+            </section>
+          </div>
+          <section class="panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">INVENTORY WATCH</p>
+                <h2>Items needing attention</h2>
+              </div>
+              <button class="text-button" data-go="inventory">View inventory ↗</button>
+            </div>
+            <div id="overview-reorder" class="table-container"></div>
+          </section>
+        </section>
+        <section id="data-view" class="view" hidden>
+          <section class="panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow" id="table-eyebrow">LIVE ENGINE REPORT</p>
+                <h2 id="table-title">Accounts</h2>
+              </div>
+              <div class="panel-actions">
+                <label class="sr-only" for="report-select">Report</label
+                ><select id="report-select"></select
+                ><button class="secondary-button compact" id="export-button">Export CSV ↓</button>
+              </div>
+            </div>
+            <div class="report-argument" id="report-argument-wrap" hidden>
+              <label id="report-argument-label" for="report-argument">Argument</label
+              ><input id="report-argument" autocomplete="off" /><button
+                class="secondary-button compact"
+                id="run-report"
+              >
+                Run report
+              </button>
+            </div>
+            <div class="table-toolbar">
+              <span id="row-count">Loading report…</span
+              ><label class="search-field"
+                ><span aria-hidden="true">⌕</span
+                ><input
+                  id="table-search"
+                  placeholder="Filter results…"
+                  aria-label="Filter report rows"
+              /></label>
+            </div>
+            <div id="report-table" class="table-container"></div>
+            <div class="panel-foot">
+              <span id="report-message">Read directly from the journal.</span
+              ><span>Amounts in integer minor units</span>
+            </div>
+          </section>
+        </section>
+        <section id="compose-view" class="view" hidden>
+          <div class="compose-grid">
+            <section class="panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="eyebrow">WRITE TO THE JOURNAL</p>
+                  <h2>Transaction desk</h2>
+                </div>
+                <span class="small-tag">COBOL VALIDATED</span>
+              </div>
+              <form id="command-form">
+                <label for="operation-select">Operation</label
+                ><select id="operation-select"></select>
+                <p class="form-hint" id="operation-hint"></p>
+                <div class="form-fields" id="command-fields"></div>
+                <div class="command-preview">
+                  <span>COMMAND PREVIEW</span><code id="command-preview"></code>
+                </div>
+                <div class="form-actions">
+                  <button type="submit" class="primary-button" id="submit-command">
+                    Record operation →</button
+                  ><span>Review the values before recording.</span>
+                </div>
+              </form>
+            </section>
+            <aside class="panel guidance">
+              <p class="eyebrow">QUICK REFERENCE</p>
+              <h2>Precision first.</h2>
+              <p>
+                Monetary values use integer minor units: <strong>12500</strong> represents
+                <strong>125.00</strong> in your chosen currency. This workspace does not convert
+                currencies.
+              </p>
+              <hr />
+              <h3>Dates &amp; identifiers</h3>
+              <p>
+                Enter dates as <code>YYYYMMDD</code>. IDs use uppercase letters, digits, hyphens and
+                underscores. Names and memos cannot contain <code>|</code>, <code>~</code> or
+                control characters.
+              </p>
+              <hr />
+              <h3>Invoice workflow</h3>
+              <ol>
+                <li>Create a customer and a draft invoice.</li>
+                <li>Add stock items as invoice lines.</li>
+                <li>Issue the invoice to post receivables, revenue, tax and cost of goods.</li>
+                <li>Record payment against the open balance.</li>
+              </ol>
+              <hr />
+              <h3>Reversals &amp; closing</h3>
+              <p>
+                Reverse an entry with a fresh reference. Closing a period rejects postings dated on
+                or before the closed-through date.
+              </p>
+            </aside>
+          </div>
+        </section>
+        <footer class="page-footer">
+          <span>Meridian · Inventory, invoicing &amp; accounting</span
+          ><span>Local journal · Deterministic reports</span>
+        </footer>
+      </main>
+    </div>
+    <dialog id="connection-dialog">
+      <form id="connection-form">
+        <p class="eyebrow">WORKSPACE CONNECTION</p>
+        <h2>Connect to Meridian</h2>
+        <p>
+          The console uses this server’s COBOL engine. If the server requires a bearer token, enter
+          it here. The token stays in this tab’s memory.
+        </p>
+        <label for="token-input">API token</label
+        ><input
+          id="token-input"
+          type="password"
+          autocomplete="off"
+          placeholder="Optional for a local workspace"
+        />
+        <div class="dialog-actions">
+          <button class="secondary-button" type="button" id="close-connection">Cancel</button
+          ><button class="primary-button" type="submit">Connect</button>
+        </div>
+      </form>
+    </dialog>
+  </body>
+</html>

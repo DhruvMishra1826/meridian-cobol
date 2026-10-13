@@ -1,0 +1,21 @@
+services:
+  meridian:
+    build: .
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      MERIDIAN_API_TOKEN: ${MERIDIAN_API_TOKEN:?Set MERIDIAN_API_TOKEN to a random token of at least 24 characters}
+    volumes:
+      - meridian-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    stop_grace_period: 25s
+
+volumes:
+  meridian-data:

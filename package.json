@@ -1,0 +1,14 @@
+{
+  "name": "meridian-console-tooling",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Development-only formatting for the dependency-free browser console",
+  "license": "UNLICENSED",
+  "scripts": {
+    "lint": "prettier --check web",
+    "format": "prettier --write web"
+  },
+  "devDependencies": {
+    "prettier": "3.9.10"
+  }
+}

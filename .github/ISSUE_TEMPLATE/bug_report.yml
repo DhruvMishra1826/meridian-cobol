@@ -1,0 +1,29 @@
+name: Bug report
+description: Report a reproducible business-rule, persistence or interface defect
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Application version and toolchain
+      description: Include release/commit, operating system, cobc version and Python version.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Isolated reproduction
+      description: Supply commands against a fresh temporary dataset. Exclude real customer data and credentials.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized evidence
+      description: Include report rows or error messages where useful.
