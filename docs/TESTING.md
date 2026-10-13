@@ -1,15 +1,50 @@
 # Testing and measured coverage
 
-Meridian's tests execute the compiled COBOL engine against temporary journals. They check business invariants, persisted replay, accounting and operational record consistency, transaction rollback, file corruption detection, concurrent requests, record limits, command validation, and the local HTTP boundary. The suite uses Python's standard `unittest` framework; no third-party test packages are required.
+Meridian's tests execute the compiled COBOL engine against temporary journals. They check business invariants, persisted replay, accounting and operational record consistency, transaction rollback, file corruption detection, concurrent requests, record limits, command validation, and the local HTTP boundary. The existing `unittest` test cases are also discovered by pinned pytest tooling through `pytest.ini`; their assertions and engine execution remain the same. `make test` uses only the standard library, while CI uses `make test-pytest` for machine-readable reporting.
+
+## Install reproducible development tools
+
+Runtime adapters need Python 3.9 or later and use only its standard library. Development tooling needs Python 3.11 or later:
+
+```sh
+python3.11 -m venv .venv
+. .venv/bin/activate
+python -m pip install --require-hashes -r requirements-dev.txt
+python -m pip check
+make lock-check
+```
+
+The authoritative development requirements are exact version pins in `pyproject.toml`'s `dev` dependency group. `uv.lock` records the complete cross-platform resolution and package hashes. `requirements-dev.txt` exports that lock for standard pip installations, including hashes for every transitive package. `requirements.txt` is an empty runtime export because the application has no runtime pip dependencies.
+
+`make lock-check` verifies that the lock agrees with project metadata and that both requirements exports match byte for byte. To update tooling deliberately, edit the dependency group and run `make lock`; review the resulting package and hash changes together. Dependabot monitors Python metadata, npm, GitHub Actions, Docker and Terraform provider dependencies.
 
 ## Run validation
 
 ```sh
 make check
-make test
+make lint typecheck
+make test-pytest
 ```
 
-`make check` treats COBOL and native C warnings as errors and checks Python syntax. The normal engine build enables GnuCOBOL runtime checks. Each domain integration test creates its own temporary data directory and invokes the real executable. A rejected operation is checked against both report state and journal bytes wherever atomicity is material. Tests never use a live journal.
+`make check` treats COBOL and native C warnings as errors and checks Python syntax. `make lint` runs Ruff's lint and formatting checks; `make typecheck` runs mypy with checking of unannotated function bodies enabled. The normal engine build enables GnuCOBOL runtime checks. Each domain integration test creates its own temporary data directory and invokes the real executable. A rejected operation is checked against both report state and journal bytes wherever atomicity is material. Tests never use a live journal.
+
+`make test-pytest` produces `build/test-results/junit.xml`, a separate Python statement/branch `coverage.xml`, and an annotated HTML report in `build/python-coverage`. Python subprocess measurement covers CLI adapters invoked by the tests. The Python report includes all modules under `tools`, including uncovered tooling paths; it does not measure COBOL or native C. Native engine coverage is measured separately below. CI uploads these actual test and coverage artifacts for both Python versions.
+
+CI runs `pip-audit` against the fully hashed development export and `npm audit --audit-level=high` against the npm lock. The local `make audit` target runs both checks after installing development tools and npm dependencies. Audit results describe known dependency advisories at the time of the run; they do not prove the application is free of vulnerabilities.
+
+## Browser and infrastructure verification
+
+```sh
+npm ci --ignore-scripts
+npx playwright install --with-deps chromium
+make all
+npm run test:browser
+terraform -chdir=infra/terraform init -backend=false -input=false -lockfile=readonly
+terraform -chdir=infra/terraform validate
+terraform -chdir=infra/terraform test
+```
+
+The browser harness starts its own server and temporary synthetic dataset, drives Chromium through the console, and cleans up afterward. It exercises the compiled engine through actual browser HTTP requests. Terraform's mock-provider tests validate deployment plans and their security/operating constraints without creating resources. CI also checks Terraform formatting and runs an actual Docker deployment smoke test in an ephemeral runner; deployment credentials and state are not test fixtures.
 
 The sales reconciliation tests verify after each issue and payment that:
 
@@ -60,6 +95,8 @@ Compiler branch coverage is also recorded, but includes generated dispatch, arit
 
 A full instrumented run on 13 October 2026 passed all 94 tests in 46.21 seconds with GnuCOBOL 3.2.0, Apple Clang 21.0.0 and `llvm-cov gcov`. The run measured 1,476 of 1,564 executable COBOL source lines (94.37 percent) and 89 of 97 native storage C lines (91.75 percent).
 
+The 1.1.0 rich pytest runner passed 103 test cases on Python 3.13.14 in 65.39 seconds and generated JUnit and Python coverage reports. Its combined statement/branch coverage of all `tools` modules was 52.07 percent: client 84.80 percent, HTTP server 81.49 percent, observability 100 percent and backup operations 74.51 percent. The native coverage orchestration and Terraform deployment utilities remained at zero in this Python report because those separate checks run outside pytest; both are included in the denominator. These Python figures are separate from the compiled engine figures below.
+
 | Original source | Covered executable lines | Line coverage |
 | --- | --- | --- |
 | `src/main.cob` | 124 / 141 | 87.94% |
@@ -70,6 +107,8 @@ A full instrumented run on 13 October 2026 passed all 94 tests in 46.21 seconds 
 | `native/store.c` | 89 / 97 | 91.75% |
 
 The portable compiler flag path was also verified with the full 94-test suite on Debian Bookworm, GnuCOBOL 3.1.2, GCC 12.2 and Python 3.11. That run passed in 31.68 seconds and measured 1,354 of 1,431 mapped executable COBOL lines (94.62 percent) and 83 of 91 native C lines (91.21 percent). Its optional `--fail-under 80` gate passed. The macOS portable flag run passed the same 94 tests in 48.48 seconds with unchanged line percentages.
+
+The 1.1.0 instrumented macOS run passed all 103 test cases in 65.26 seconds and retained the same 94.37 percent COBOL and 91.75 percent native C line measurements. Its 85 percent COBOL gate passed. The Chromium workflow regression passed all six results, and all 11 Terraform mock-plan tests passed. A live Terraform deployment on an isolated Docker daemon passed authenticated readiness/metrics, balanced posting, restart persistence and protected-volume checks in 47.96 seconds; its randomly named synthetic resources were removed afterward.
 
 These are results from those compilers and test workloads. Executable line mappings and platform-specific storage code account for differences in denominators. Run the coverage tool to reproduce a fresh measurement; its reports record the actual toolchain, count, time, uncovered lines and raw execution counters. This baseline does not claim complete branch coverage or coverage of Python and browser code.
 

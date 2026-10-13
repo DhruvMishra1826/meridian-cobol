@@ -6,11 +6,13 @@ An order-to-cash operations application with a **COBOL business engine**, durabl
 
 Meridian brings together double-entry bookkeeping, fixed-cost inventory, customer invoicing, integer-cent tax calculation, partial payments, receivables aging, and recoverable audit history. The same compiled engine serves every interface; the Python adapters do not reimplement business rules.
 
+The application includes an optional [Terraform deployment module](infra/terraform/README.md) for a hardened local Docker service. Its provisioning code lives separately from the COBOL business engine.
+
 ![Meridian operations console showing the synthetic demonstration dataset](docs/images/overview.png)
 
 ## Start in five minutes
 
-Prerequisites: GnuCOBOL 3.1 or newer, a C11 compiler, Make, and Python 3.9 or newer. Linux and macOS are supported; POSIX file locks are required. For deployments, use a currently supported Python release such as the container's Python 3.11.
+Prerequisites: GnuCOBOL 3.1 or newer, a C11 compiler, Make, and Python 3.11 or newer for the complete development/test workflow. The standard-library runtime adapters remain compatible with Python 3.9. Linux and macOS are supported; POSIX file locks are required.
 
 ```bash
 # Ubuntu / Debian
@@ -18,7 +20,7 @@ sudo apt-get update
 sudo apt-get install gnucobol gcc make python3
 
 # macOS alternative
-brew install gnucobol
+brew install gnucobol python@3.13
 
 git clone https://github.com/DhruvMishra1826/meridian-cobol.git
 cd meridian-cobol
@@ -61,9 +63,9 @@ An invoice issue atomically checks stock, records revenue/tax/cost postings, and
 The demo contains two products and two invoices. Follow one invoice through:
 
 ```bash
-python3 tools/meridian.py --data-dir demo-data report 'INVOICE-SHOW|INV_0001'
+python3 tools/meridian.py --data-dir demo-data report INVOICE-SHOW INV_0001
 python3 tools/meridian.py --data-dir demo-data report STOCK
-python3 tools/meridian.py --data-dir demo-data report 'AGING|20261120'
+python3 tools/meridian.py --data-dir demo-data report AGING 20261120
 python3 tools/meridian.py --data-dir demo-data report JOURNAL
 python3 tools/meridian.py --data-dir demo-data report SUMMARY
 ```
@@ -80,20 +82,26 @@ The batch parser ignores blank lines and `#` comments. A batch accepts only muta
 
 ```bash
 make check                         # COBOL/C warnings are errors; Python syntax
-make test                          # Real compiled-engine and HTTP integration tests
+make test                          # Standard-library engine and HTTP integration tests
+# Use a Python 3.11+ interpreter for development tooling:
 python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements-dev.txt
+.venv/bin/python -m pip install --require-hashes -r requirements-dev.txt
 .venv/bin/python -m ruff check tools tests
 .venv/bin/python -m ruff format --check tools tests
 make coverage                      # Instrumented COBOL/native C execution reports
 # Optional console development checks (Node.js development tooling):
 npm ci
 npm run lint
+make test-pytest PYTHON=.venv/bin/python
+make typecheck PYTHON=.venv/bin/python
+make lock-check UV=.venv/bin/uv
+make audit PYTHON=.venv/bin/python
+npm run test:browser                # Install Playwright Chromium, or set MERIDIAN_BROWSER_EXECUTABLE
 ```
 
 Tests cover reconciliation across ledger and subledgers, rounding boundaries, overflow, exact collection limits, replay and corrupt histories, concurrent writers, atomic batch rollback, backups/restoration, HTTP authentication, request bounds, and unsafe origins. See [testing](docs/TESTING.md) for measured coverage and its scope. Compiler-generated code coverage is reported separately from application source mappings; test counts alone do not establish coverage.
 
-CI compiles, checks, lints, tests, publishes coverage artifacts, and smoke-tests the container. Actions are pinned to verified commit SHAs. Dependabot tracks development tooling, GitHub Actions, and container bases. Runtime adapters require **no third-party Python packages**.
+CI compiles, lints, typechecks, runs pytest and browser regressions, audits locked dependencies, publishes coverage/JUnit artifacts, and tests container deployment. Actions are pinned to verified commit SHAs. Dependabot tracks development tooling, GitHub Actions, container bases and Terraform providers. Runtime adapters require **no third-party Python packages**.
 
 ## Containers and remote access
 

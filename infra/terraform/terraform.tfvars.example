@@ -1,0 +1,6 @@
+name      = "meridian"
+host_port = 8080
+memory_mb = 256
+
+# Supply api_token through TF_VAR_api_token rather than committing a value.
+# For macOS/Colima, set TF_VAR_docker_host to the profile's Unix socket.
