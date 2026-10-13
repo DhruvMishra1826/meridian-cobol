@@ -1,0 +1,6 @@
+# Synthetic opening journal for a fresh dataset.
+ACCOUNT|CASH|ASSET|Cash and bank
+ACCOUNT|EQUITY|EQUITY|Owner capital
+ACCOUNT|AP|LIABILITY|Trade payables
+ACCOUNT|INVENTORY|ASSET|Inventory
+POST|OPENING_CAPITAL|20261013|CASH|EQUITY|1000000|Synthetic opening capital
