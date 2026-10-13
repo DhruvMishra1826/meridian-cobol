@@ -14,10 +14,10 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-try:
-    from .client import Client, MeridianError
-except ImportError:
-    from client import Client, MeridianError
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from tools.client import Client, MeridianError
 
 MAX_JOURNAL_BYTES = 32 * 1024 * 1024
 MAX_BACKUP_BYTES = 48 * 1024 * 1024

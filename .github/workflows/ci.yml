@@ -30,11 +30,30 @@ jobs:
       - name: Install native toolchain
         run: sudo apt-get update && sudo apt-get install -y gnucobol gcc make
       - name: Install pinned development tooling
-        run: python -m pip install --requirement requirements-dev.txt
-      - name: Compile, check and test
-        run: make all check lint test
-      - name: Check browser source formatting
-        run: npm ci --ignore-scripts && npm run lint
+        run: python -m pip install --require-hashes --requirement requirements-dev.txt
+      - name: Check Python lockfile and exported requirement drift
+        run: make lock-check
+      - name: Compile COBOL and C with warnings as errors
+        run: make all check
+      - name: Ruff lint and format checks
+        run: |
+          python -m ruff check tools tests
+          python -m ruff format --check tools tests
+      - name: Mypy typecheck Python adapters and tooling
+        run: python -m mypy tools
+      - name: Pytest integration tests with JUnit and Python coverage
+        run: make test-pytest
+      - name: Upload JUnit and Python coverage reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-test-reports-${{ matrix.python }}
+          path: |
+            build/test-results/junit.xml
+            coverage.xml
+            build/python-coverage/
+          if-no-files-found: error
+          retention-days: 14
       - name: Measure COBOL statement coverage
         if: matrix.python == '3.13'
         run: make coverage COVERAGE_FLAGS='--fail-under 85'
@@ -53,6 +72,54 @@ jobs:
             build/coverage/gcov.log
           if-no-files-found: error
           retention-days: 14
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Install hashed Python development requirements
+        run: python -m pip install --require-hashes --requirement requirements-dev.txt
+      - name: Audit Python dependencies with pip-audit
+        run: python -m pip_audit --requirement requirements-dev.txt --require-hashes
+      - name: Install locked browser development dependencies
+        run: npm ci --ignore-scripts
+      - name: Audit npm dependencies
+        run: npm audit --audit-level=high
+
+  browser:
+    name: Browser workflow integration
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Build real engine for browser workflows
+        run: sudo apt-get update && sudo apt-get install -y gnucobol gcc make && make all
+      - name: Install locked browser tooling
+        run: npm ci --ignore-scripts
+      - name: Browser source lint
+        run: npm run lint
+      - name: Install Chromium for browser tests
+        run: npx playwright install --with-deps chromium
+      - name: Exercise console against the real engine
+        run: npm run test:browser
 
   container:
     name: Container smoke test

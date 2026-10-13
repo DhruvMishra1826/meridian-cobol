@@ -9,3 +9,14 @@ __pycache__/
 /assessment-results/
 /.venv/
 /node_modules/
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+infra/terraform/terraform.tfvars
+coverage.xml
+.coverage
+.coverage.*
+.pytest_cache/
+.mypy_cache/

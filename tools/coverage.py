@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "build" / "coverage"
@@ -189,7 +190,7 @@ def instrumented_count(marker):
 
 def parse_gcov(path):
     source = None
-    counts = {}
+    counts: dict[int, int] = {}
     branches = []
     current_line = 0
     for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
@@ -228,7 +229,7 @@ def collect(gcov):
     report_dir = OUTPUT / "gcov"
     report_dir.mkdir()
     logs = []
-    records = {}
+    records: dict[str, dict[str, Any]] = {}
     known = {source.resolve() for source in (*COBOL_SOURCES, NATIVE_SOURCE)}
     if not list(OUTPUT.glob("*.gcda")):
         raise CoverageError("Tests produced no engine coverage data; verify MERIDIAN_ENGINE support")

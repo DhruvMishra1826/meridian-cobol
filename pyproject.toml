@@ -1,9 +1,45 @@
 [project]
 name = "meridian-cobol"
-version = "1.0.0"
+version = "1.1.0"
 description = "COBOL accounting, inventory and receivables with a local operations console"
 requires-python = ">=3.9"
 dependencies = []
+
+[dependency-groups]
+dev = [
+    "mypy==2.4.0",
+    "pip-audit==2.10.1",
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+    "ruff==0.17.0",
+    "uv==0.13.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.dependency-groups]
+dev = { requires-python = ">=3.11" }
+
+[tool.mypy]
+python_version = "3.11"
+check_untyped_defs = true
+no_implicit_optional = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+
+[tool.coverage.run]
+branch = true
+source = ["tools"]
+data_file = "build/test-results/.coverage"
+patch = ["subprocess"]
+
+[tool.coverage.report]
+show_missing = true
+precision = 2
+
+[tool.coverage.xml]
+output = "coverage.xml"
 
 [tool.ruff]
 target-version = "py39"

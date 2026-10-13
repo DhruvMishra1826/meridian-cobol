@@ -1,12 +1,13 @@
 """Seed a complete, explicitly synthetic order-to-cash scenario atomically."""
 
 import argparse
+import sys
 from pathlib import Path
 
-try:
-    from .client import Client, MeridianError
-except ImportError:
-    from client import Client, MeridianError
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from tools.client import Client, MeridianError
 
 DEMO_COMMANDS = [
     "ACCOUNT|CASH|ASSET|Cash and bank",
