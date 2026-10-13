@@ -2,6 +2,7 @@ COBC ?= cobc
 CC ?= cc
 COBFLAGS ?= -free -Wall -Wextra -Werror -debug -I copybooks
 CFLAGS ?= -std=c11 -Wall -Wextra -Werror -O2
+COVERAGE_FLAGS ?=
 SOURCES := src/main.cob src/validate.cob src/ledger.cob src/inventory.cob src/sales.cob
 COPYBOOKS := $(wildcard copybooks/*.cpy)
 
@@ -27,7 +28,7 @@ lint:
 	python3 -m ruff format --check tools tests
 
 coverage:
-	python3 tools/coverage.py
+	python3 tools/coverage.py $(COVERAGE_FLAGS)
 
 test: all
 	python3 -m unittest discover -s tests -v

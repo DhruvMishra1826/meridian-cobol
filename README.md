@@ -140,7 +140,7 @@ One dataset supports 200 accounts, 500 items, 500 customers, 500 invoices, 30 li
 
 Stock uses fixed standard cost and whole units; no FIFO/weighted-average valuation, foreign exchange, bank integrations, payroll, jurisdiction-specific tax filing, or automatic credit notes. Issued invoices and payments are immutable. Manual reversals cannot undo integrated stock/invoice/payment entries; compensating inventory adjustments are supported. Aging reports use current outstanding balances and are operational snapshots, not historical payment reconstructions. Manual postings to control accounts should follow the reconciliation runbook.
 
-This is a newly developed application. Synthetic demonstration data and test fixtures do not represent production customers or long-term operating history. Evaluate and review it for your own environment before relying on it for live business records.
+The demo uses synthetic data. Review the documented limits and recovery procedure before using live business records.
 
 ## Further documentation
 

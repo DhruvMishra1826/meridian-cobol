@@ -37,7 +37,7 @@ jobs:
         run: npm ci --ignore-scripts && npm run lint
       - name: Measure COBOL statement coverage
         if: matrix.python == '3.13'
-        run: make coverage
+        run: make coverage COVERAGE_FLAGS='--fail-under 85'
       - name: Upload coverage report
         if: matrix.python == '3.13'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

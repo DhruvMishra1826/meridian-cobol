@@ -28,7 +28,7 @@ python3 tools/coverage.py
 
 The coverage tool builds an isolated, unoptimized executable at `build/coverage/meridian`, instrumenting both generated COBOL C and `native/store.c`. It sets `MERIDIAN_ENGINE` for the actual unittest run, then reads execution counters with the matching `gcov` tool. It never replaces the normal `build/meridian` binary. Each invocation clears only the generated `build/coverage` directory before collecting a fresh run.
 
-GnuCOBOL's `--coverage` option enables native compiler instrumentation and emits source mappings from generated C to the original COBOL files. GCC installations need a matching `gcov`; Clang installations need `llvm-cov gcov`. On macOS the tool can locate `llvm-cov` through `xcrun`. Override toolchain commands when necessary:
+The tool passes `--coverage` to the native C compiler and linker through GnuCOBOL's `-A` and `-Q` options. GnuCOBOL's `-g` option emits source mappings from generated C to the original COBOL files. This works with GnuCOBOL 3.1 and 3.2, including drivers that lack a direct `--coverage` option. GCC installations need a matching `gcov`; Clang installations need `llvm-cov gcov`. On macOS the tool can locate `llvm-cov` through `xcrun`. Override toolchain commands when necessary:
 
 ```sh
 python3 tools/coverage.py --cc gcc --gcov gcov
@@ -69,7 +69,9 @@ A full instrumented run on 13 October 2026 passed all 94 tests in 46.21 seconds 
 | `src/sales.cob` | 688 / 713 | 96.49% |
 | `native/store.c` | 89 / 97 | 91.75% |
 
-These are results from that compiler and test workload. Run the coverage tool to reproduce a fresh measurement; its reports record the actual toolchain, count, time, uncovered lines and raw execution counters. This baseline does not claim complete branch coverage or coverage of Python and browser code.
+The portable compiler flag path was also verified with the full 94-test suite on Debian Bookworm, GnuCOBOL 3.1.2, GCC 12.2 and Python 3.11. That run passed in 31.68 seconds and measured 1,354 of 1,431 mapped executable COBOL lines (94.62 percent) and 83 of 91 native C lines (91.21 percent). Its optional `--fail-under 80` gate passed. The macOS portable flag run passed the same 94 tests in 48.48 seconds with unchanged line percentages.
+
+These are results from those compilers and test workloads. Executable line mappings and platform-specific storage code account for differences in denominators. Run the coverage tool to reproduce a fresh measurement; its reports record the actual toolchain, count, time, uncovered lines and raw execution counters. This baseline does not claim complete branch coverage or coverage of Python and browser code.
 
 ## Optional coverage gate
 
@@ -79,6 +81,6 @@ Set a threshold only after examining a measured baseline for the selected compil
 python3 tools/coverage.py --fail-under 80
 ```
 
-This example gates the aggregate percentage of mapped executable COBOL lines. It does not gate native C or compiler branches. There is no default threshold or assumed percentage. Compiler versions can change executable line mappings, so compare reports with their recorded toolchain. For a focused investigation, `--pattern 'test_sales.py'` runs only that suite and reports coverage from that smaller workload.
+This example gates the aggregate percentage of mapped executable COBOL lines. It does not gate native C or compiler branches. The standalone tool has no default threshold; CI enforces an 85% floor using the measured Linux baseline. Compiler versions can change executable line mappings, so compare reports with their recorded toolchain. For a focused investigation, `--pattern 'test_sales.py'` runs only that suite and reports coverage from that smaller workload.
 
 The coverage run does not instrument Python adapters, browser JavaScript or the external GnuCOBOL runtime library. Failures involving full disks, power loss, inaccessible hardware and every possible system-call error are not all reproducible in normal unit tests. Native storage error-handling gaps remain visible in the report rather than being excluded to inflate coverage.

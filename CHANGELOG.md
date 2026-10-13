@@ -10,5 +10,3 @@ Initial application release:
 * CLI, authenticated local/private HTTP API and browser operations console.
 * Compiled-engine, concurrency, capacity, corruption, HTTP and disaster-recovery tests.
 * Reproducible builds, pinned development tooling, CI and container packaging.
-
-This initial release does not imply earlier production use or historical releases.

@@ -111,6 +111,13 @@ def build_instrumented(cobc, compiler):
         "-Werror",
         "-O0",
         "-debug",
+        # -g emits original COBOL line directives on both GnuCOBOL 3.1 and 3.2.
+        # Passing coverage flags through -A/-Q also supports 3.1, whose driver
+        # does not recognize the --coverage convenience option.
+        "-g",
+        "-A",
+        "--coverage",
+        "-Q",
         "--coverage",
         "--save-temps",
         "-I",
