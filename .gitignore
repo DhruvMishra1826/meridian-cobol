@@ -1,0 +1,11 @@
+/build/
+/data/
+/demo-data/
+/backups/
+__pycache__/
+*.py[cod]
+.DS_Store
+.env
+/assessment-results/
+/.venv/
+/node_modules/

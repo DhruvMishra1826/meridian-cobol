@@ -1,0 +1,20 @@
+[project]
+name = "meridian-cobol"
+version = "1.0.0"
+description = "COBOL accounting, inventory and receivables with a local operations console"
+requires-python = ">=3.9"
+dependencies = []
+
+[tool.ruff]
+target-version = "py39"
+line-length = 110
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B", "S"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S104", "S105", "S106", "S108", "S110", "S311", "S603", "S607"]
+"tools/client.py" = ["S603"]
+"tools/coverage.py" = ["S603", "S607"]
+
