@@ -6,6 +6,8 @@ import json
 import os
 import secrets
 import sys
+import time
+import uuid
 from functools import partial
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -15,6 +17,7 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tools.client import ROOT, Client, MeridianError, validate_report
+from tools.observability import METHODS, Metrics, fixed_route, request_logger
 
 MAX_BODY = 4096
 ASSETS = {
@@ -56,8 +59,14 @@ class MeridianHTTPServer(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
 
+    def __init__(self, *args, metrics=None, logger=None, **kwargs):
+        self.metrics = metrics if metrics is not None else Metrics()
+        self.logger = logger if logger is not None else request_logger()
+        super().__init__(*args, **kwargs)
+
 
 class Handler(BaseHTTPRequestHandler):
+    server: MeridianHTTPServer
     server_version = "Meridian/1"
     sys_version = ""
     protocol_version = "HTTP/1.0"
@@ -73,15 +82,50 @@ class Handler(BaseHTTPRequestHandler):
         self.connection.settimeout(10)
 
     def log_message(self, format, *args):
-        # Avoid writing commands, customer data, or tokens into access logs.
-        print("Meridian HTTP %s %s" % (self.command, urlsplit(self.path).path), file=sys.stderr)
+        # Suppress the base handler's raw request/error text. Completion is JSON.
+        pass
+
+    def handle_one_request(self):
+        self.request_id = uuid.uuid4().hex
+        self.response_status = 0
+        started = time.monotonic()
+        try:
+            super().handle_one_request()
+        except (ConnectionError, OSError):
+            self.close_connection = True
+        finally:
+            if getattr(self, "requestline", ""):
+                duration = max(0.0, time.monotonic() - started)
+                method = getattr(self, "command", "OTHER")
+                method = method if method in METHODS else "OTHER"
+                try:
+                    route = fixed_route(urlsplit(getattr(self, "path", "")).path, ASSETS)
+                except ValueError:
+                    route = "unmatched"
+                self.server.metrics.record(method, route, self.response_status, duration)
+                self.server.logger.info(
+                    "http_request",
+                    extra={
+                        "request_id": self.request_id,
+                        "method": method,
+                        "route": route,
+                        "status": self.response_status,
+                        "duration_ms": round(duration * 1000, 3),
+                    },
+                )
+
+    def send_error(self, code, message=None, explain=None):
+        # Parser/method errors use static phrases; raw request targets stay out.
+        self.error(code, self.responses.get(code, ("Request rejected",))[0])
 
     def respond(self, status, content, content_type="application/json; charset=utf-8"):
+        self.response_status = status
         if not isinstance(content, bytes):
             content = json.dumps(content, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(content)))
+        self.send_header("X-Request-ID", self.request_id)
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
@@ -91,7 +135,8 @@ class Handler(BaseHTTPRequestHandler):
             "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'",
         )
         self.end_headers()
-        self.wfile.write(content)
+        if self.command != "HEAD":
+            self.wfile.write(content)
 
     def error(self, status, message):
         self.respond(status, {"ok": False, "message": message, "rows": []})
@@ -160,9 +205,26 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             route = urlsplit(self.path)
+            if route.scheme or route.netloc or route.fragment:
+                self.error(400, "Invalid request target")
+                return
             if route.path in ASSETS and not route.query:
                 filename, media = ASSETS[route.path]
                 self.respond(200, (ROOT / "web" / filename).read_bytes(), media)
+                return
+            if route.path == "/health" and not route.query:
+                self.respond(200, {"ok": True, "status": "alive"})
+                return
+            if route.path in {"/ready", "/metrics"} and not route.query:
+                if not self.authorized():
+                    return
+                if route.path == "/ready":
+                    readiness = self.client.readiness()
+                    self.respond(200 if readiness["ok"] else 503, readiness)
+                else:
+                    self.respond(
+                        200, self.server.metrics.render(), "text/plain; version=0.0.4; charset=utf-8"
+                    )
                 return
             if not route.path.startswith("/api/"):
                 self.error(404, "Route not found")
@@ -188,7 +250,15 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self.authorized():
             return
-        if urlsplit(self.path).path != "/api/command" or urlsplit(self.path).query:
+        try:
+            route = urlsplit(self.path)
+        except ValueError:
+            self.error(400, "Invalid request target")
+            return
+        if route.scheme or route.netloc or route.fragment:
+            self.error(400, "Invalid request target")
+            return
+        if route.path != "/api/command" or route.query:
             self.error(404, "Route not found")
             return
         if not self.valid_origin() or self.headers.get("Sec-Fetch-Site", "same-origin") not in {
@@ -235,7 +305,7 @@ class Handler(BaseHTTPRequestHandler):
         self.error(403, "Cross-origin requests are not allowed")
 
 
-def create_server(data_dir, host="127.0.0.1", port=8080, token=None, client=None):
+def create_server(data_dir, host="127.0.0.1", port=8080, token=None, client=None, metrics=None, logger=None):
     if not isinstance(port, int) or not 0 <= port <= 65535:
         raise ValueError("Port must be between 0 and 65535")
     token = os.environ.get("MERIDIAN_API_TOKEN", "") if token is None else token
@@ -245,7 +315,7 @@ def create_server(data_dir, host="127.0.0.1", port=8080, token=None, client=None
     if token and (len(token.encode("utf-8")) < 24 or any(ord(c) < 33 or ord(c) > 126 for c in token)):
         raise ValueError("MERIDIAN_API_TOKEN must have at least 24 printable ASCII characters without spaces")
     handler = partial(Handler, client=client or Client(data_dir), token=token, local=local)
-    return MeridianHTTPServer((host, port), handler)
+    return MeridianHTTPServer((host, port), handler, metrics=metrics, logger=logger)
 
 
 def run(data_dir, host="127.0.0.1", port=8080):

@@ -27,5 +27,5 @@ ENV MERIDIAN_DATA_DIR=/data PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 EXPOSE 8080
 VOLUME ["/data"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD python3 -c "import os,urllib.request; r=urllib.request.Request('http://127.0.0.1:8080/api/health',headers={'Authorization':'Bearer '+os.environ.get('MERIDIAN_API_TOKEN','')}); urllib.request.urlopen(r,timeout=4).read()"
+    CMD python3 -c "import os,urllib.request; r=urllib.request.Request('http://127.0.0.1:8080/ready',headers={'Authorization':'Bearer '+os.environ.get('MERIDIAN_API_TOKEN','')}); urllib.request.urlopen(r,timeout=4).read()"
 CMD ["python3", "tools/server.py", "--host", "0.0.0.0", "--port", "8080"]

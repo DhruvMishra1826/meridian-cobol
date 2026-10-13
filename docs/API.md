@@ -27,7 +27,7 @@ python3 tools/meridian.py --data-dir ./data/example report AGING 20261013
 
 All monetary values remain integer minor units in text, JSON and CSV. CLI success exits 0; invalid input or a rejected operation exits 2. An interrupted CLI exits 130. Error JSON is written to standard error when `--format json` is selected.
 
-The default data directory is `~/.local/share/meridian`. `MERIDIAN_DATA_DIR` overrides it; `--data-dir` takes precedence. `MERIDIAN_ENGINE` can select an alternative compiled binary. `Client(data_dir, engine=...)` explicitly overrides that environment variable.
+The default data directory is `~/.local/share/meridian`. `MERIDIAN_DATA_DIR` overrides it; `--data-dir` takes precedence. `MERIDIAN_ENGINE` can select an alternative compiled binary; an empty or whitespace-only value uses the repository default. `Client(data_dir, engine=...)` explicitly overrides that environment variable.
 
 ### Atomic command files
 
@@ -77,10 +77,15 @@ Open `http://127.0.0.1:8080`. The console uses the same routes described here.
 
 | Method and route | Behavior |
 | --- | --- |
+| `GET /health` | Public minimal process liveness; does not access the engine or journal |
+| `GET /ready` | Authenticated readiness check of executable, storage permissions and journal replay |
+| `GET /metrics` | Authenticated Prometheus counters, latency histograms and process uptime |
 | `GET /api/health` | Replays the journal and executes `SUMMARY`; detects an unusable engine or invalid history |
 | `GET /api/report?command=...` | Executes an allowed read-only report |
 | `POST /api/command` | Executes one command, including an atomic `BATCH` |
 | `GET /`, `/index.html`, `/app.js`, `/style.css`, `/favicon.svg` | Serves the packaged console assets |
+
+The console loads packaged ES modules at `/api.js`, `/catalog.js`, `/dom.js`, `/forms.js`, `/navigation.js`, `/operations.js`, `/reports.js` and `/state.js`. Static routes use an exact asset allowlist; they do not map arbitrary URL paths to files.
 
 The server exposes no filesystem path, backup, deletion or engine configuration endpoint. Report routes allow `ACCOUNTS`, `TRIAL`, `JOURNAL`, `STATEMENT`, `SUMMARY`, `STOCK`, `MOVEMENTS`, `REORDER`, `CUSTOMERS`, `INVOICES`, `INVOICE-SHOW` and `AGING`. `STATEMENT`, `INVOICE-SHOW` and `AGING` require one argument; other reports take no arguments.
 
@@ -117,7 +122,7 @@ POST requires one JSON field, `command`, with a string value. Bodies must have `
 }
 ```
 
-All row fields are strings. Errors have `{"ok": false, "message": "...", "rows": []}`. No CORS permission is sent. Responses disable caching and include a restrictive content security policy.
+All business-report row fields are strings. Business API errors have `{"ok": false, "message": "...", "rows": []}`. Probe responses use the schemas below. No CORS permission is sent. Responses disable caching, include a restrictive content security policy and return a server-generated `X-Request-ID` for log correlation. A supplied request ID is not reused.
 
 | HTTP status | Meaning |
 | --- | --- |
@@ -136,9 +141,46 @@ All row fields are strings. Errors have `{"ok": false, "message": "...", "rows":
 
 A loopback bind accepts only loopback Host headers matching its port. Every POST, including local requests, requires an `Origin` matching the Host and rejects a cross-site `Sec-Fetch-Site` value. Read-only GET requests never accept mutation commands.
 
-Set `MERIDIAN_API_TOKEN` to at least 24 printable ASCII characters without spaces to require bearer authentication. A non-loopback bind requires this token at startup. All `/api/` routes then require `Authorization: Bearer TOKEN`; static assets remain accessible so the console can request the token. The token is compared in constant time and held only in the console tab's memory. Do not put it in a URL.
+Set `MERIDIAN_API_TOKEN` to at least 24 printable ASCII characters without spaces to require bearer authentication. A non-loopback bind requires this token at startup. All `/api/` routes, `/ready` and `/metrics` then require `Authorization: Bearer TOKEN`; `/health` and static assets remain accessible. The token is compared in constant time and held only in the console tab's memory. Do not put it in a URL. Host checks apply to public and authenticated routes alike.
 
 The non-loopback server accepts a matching `http` or `https` Origin, allowing a TLS reverse proxy to preserve the original Host header. The built-in server does not terminate TLS, enforce roles, rate-limit requests or offer multi-tenant isolation.
+
+## Health and telemetry
+
+`/health` returns HTTP 200 with `{"ok": true, "status": "alive"}` while the HTTP process handles requests. It reveals no balances, records, engine path or storage state. Liveness remains successful if the journal is corrupt or the engine is missing; deployment tooling should check readiness separately.
+
+`/ready` returns HTTP 200 with `{"ok": true, "status": "ready"}` after validating permissions and executing `SUMMARY`. Failure returns HTTP 503 with a coarse reason:
+
+```json
+{"ok": false, "status": "not_ready", "reason": "journal_corrupt"}
+```
+
+| Readiness reason | Meaning |
+| --- | --- |
+| `missing_engine` | The configured executable is absent |
+| `engine_unavailable` | The executable cannot run or its response is invalid |
+| `engine_timeout` | The engine exceeded its 20-second limit |
+| `storage_permission` | Journal/directory lacks required owner permissions or filesystem access |
+| `storage_unavailable` | Storage cannot be inspected/opened/locked or a durability error occurred |
+| `journal_corrupt` | Invalid header, incomplete tail, checksum/sequence error or invalid replay |
+
+The readiness payload contains neither filesystem paths nor exception details. A fresh workspace may initialize its journal header during the first probe; readiness does not append a business event. Repairing the executable, restoring a valid journal or correcting permissions allows the next probe to recover without restarting the server. `/api/health` retains its original report payload for existing clients.
+
+```sh
+curl 'http://127.0.0.1:8080/health'
+curl --header "Authorization: Bearer $MERIDIAN_API_TOKEN" 'http://127.0.0.1:8080/ready'
+curl --header "Authorization: Bearer $MERIDIAN_API_TOKEN" 'http://127.0.0.1:8080/metrics'
+```
+
+`/metrics` serves Prometheus text format 0.0.4:
+
+- `meridian_http_requests_total`: completed requests labeled by fixed route, method and status.
+- `meridian_http_request_duration_seconds`: latency histogram with 0.005, 0.025, 0.1, 0.5, 1, 5, 20 and 60-second buckets, plus `+Inf`, count and sum.
+- `meridian_process_uptime_seconds`: HTTP server uptime.
+
+Known API/probe routes retain their names; all packaged assets use the `static` label and unknown targets use `unmatched`. Methods/statuses also collapse to fixed sets. Labels never contain request IDs, customer IDs, raw paths, query parameters, tokens or commands. One lock protects counters and histogram updates; snapshots are copied before serialization. Counters reset on process restart, are not durable business statistics, and the scrape includes requests completed before its own response.
+
+Each completed request emits one JSON event through Python's standard logging module to standard error. The fixed fields are UTC `timestamp`, `event`, generated `request_id`, normalized `method`, fixed `route`, numeric `status` and `duration_ms`. Duration includes request processing and any engine work. Logs contain no headers, bodies, raw URLs, response messages, customer content or local paths. Status 0 indicates a request whose connection ended before a response was sent.
 
 ## Report row schemas
 

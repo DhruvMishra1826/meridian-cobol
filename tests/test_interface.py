@@ -35,6 +35,11 @@ class ClientBoundaryTests(unittest.TestCase):
             self.assertEqual(Client(self.client.data_dir).engine, external.resolve())
             self.assertEqual(Client(self.client.data_dir, engine=explicit).engine, explicit.resolve())
 
+    def test_blank_engine_environment_uses_repository_default(self):
+        for blank in ("", "   "):
+            with self.subTest(blank=repr(blank)), patch.dict(os.environ, {"MERIDIAN_ENGINE": blank}):
+                self.assertEqual(Client(self.client.data_dir).engine, ROOT / "build" / "meridian")
+
     def test_symlink_directory_rejected(self):
         alias = Path(self.temp.name) / "alias"
         alias.symlink_to(self.client.data_dir, target_is_directory=True)
