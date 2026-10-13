@@ -1,5 +1,7 @@
 # Meridian COBOL
 
+[![CI](https://github.com/DhruvMishra1826/meridian-cobol/actions/workflows/ci.yml/badge.svg)](https://github.com/DhruvMishra1826/meridian-cobol/actions/workflows/ci.yml)
+
 An order-to-cash operations application with a **COBOL business engine**, durable journal, command-line tools, authenticated HTTP API, and browser console.
 
 Meridian brings together double-entry bookkeeping, fixed-cost inventory, customer invoicing, integer-cent tax calculation, partial payments, receivables aging, and recoverable audit history. The same compiled engine serves every interface; the Python adapters do not reimplement business rules.

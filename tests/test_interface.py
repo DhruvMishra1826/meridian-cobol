@@ -299,7 +299,9 @@ class HTTPBoundaryTests(unittest.TestCase):
     def test_deep_json_rejected_and_server_remains_healthy(self):
         nested = '{"command":' + "[" * 1100 + "0" + "]" * 1100 + "}"
         headers = {"Content-Type": "application/json", "Origin": self.origin}
-        self.assertEqual(self.request("POST", "/api/command", nested, headers)[0], 400)
+        # Decoder recursion limits vary by Python version: reject during parsing
+        # with 400, or after parsing when the command is not a string with 422.
+        self.assertIn(self.request("POST", "/api/command", nested, headers)[0], (400, 422))
         self.assertEqual(self.client.calls, [])
         self.assertEqual(self.request("GET", "/api/health")[0], 200)
 
