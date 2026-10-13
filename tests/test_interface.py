@@ -201,7 +201,19 @@ class HTTPBoundaryTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertTrue(json.loads(data)["ok"])
         self.assertEqual(self.client.calls, ["SUMMARY"])
-        for path in ["/", "/app.js", "/style.css"]:
+        for path in [
+            "/",
+            "/app.js",
+            "/style.css",
+            "/api.js",
+            "/catalog.js",
+            "/dom.js",
+            "/forms.js",
+            "/navigation.js",
+            "/operations.js",
+            "/reports.js",
+            "/state.js",
+        ]:
             status, headers, data = self.request("GET", path)
             self.assertEqual(status, 200)
             self.assertIn("frame-ancestors 'none'", headers["Content-Security-Policy"])

@@ -1,0 +1,148 @@
+import { today } from './state.js';
+const field = (label, value = '', hint = '', kind = 'text') => ({ label, value, hint, kind });
+export const operations = [
+  {
+    name: 'ACCOUNT',
+    label: 'Create ledger account',
+    hint: 'Register an account before posting. Choose ASSET, LIABILITY, EQUITY, REVENUE or EXPENSE.',
+    fields: [
+      field('Account ID', 'CASH', 'Uppercase unique identifier', 'id'),
+      field('Account type', 'ASSET', 'ASSET / LIABILITY / EQUITY / REVENUE / EXPENSE'),
+      field('Account name', 'Operating cash'),
+    ],
+  },
+  {
+    name: 'POST',
+    label: 'Post journal entry',
+    hint: 'Record one balanced debit and credit. Amount must be positive and the reference unique.',
+    fields: [
+      field('Reference', 'OPENING_001', 'Unique posting reference', 'id'),
+      field('Posting date', today(), 'YYYYMMDD', 'date'),
+      field('Debit account', 'CASH', 'Existing account', 'id'),
+      field('Credit account', 'EQUITY', 'Existing account', 'id'),
+      field('Amount', '100000', 'Integer minor units', 'uint'),
+      field('Memo', 'Opening capital'),
+    ],
+  },
+  {
+    name: 'REVERSE',
+    label: 'Reverse journal entry',
+    hint: 'Create a balancing entry for an existing posting using a fresh reference.',
+    fields: [
+      field('Original reference', 'OPENING_001', 'Existing entry reference', 'id'),
+      field('New reference', 'REV_OPENING_001', 'Unique reversal reference', 'id'),
+      field('Posting date', today(), 'YYYYMMDD', 'date'),
+      field('Memo', 'Correct opening entry'),
+    ],
+  },
+  {
+    name: 'CLOSE',
+    label: 'Close accounting period',
+    hint: 'Posting dates on or before this date will be rejected. Review the ledger before closing.',
+    fields: [field('Closed-through date', today(), 'YYYYMMDD', 'date')],
+  },
+  {
+    name: 'ITEM',
+    label: 'Register inventory item',
+    hint: 'Create a stock item with a fixed standard cost and a replenishment threshold.',
+    fields: [
+      field('SKU', 'WIDGET', 'Unique stock identifier', 'id'),
+      field('Item name', 'Industrial widget'),
+      field('Standard cost', '2500', 'Integer minor units per unit', 'uint'),
+      field('Reorder point', '10', 'Integer units', 'uint'),
+    ],
+  },
+  {
+    name: 'RECEIVE',
+    label: 'Receive inventory',
+    hint: 'Increase stock and post the standard-cost value to inventory and an offset account.',
+    fields: [
+      field('Reference', 'RECEIPT_001', 'Unique receipt reference', 'id'),
+      field('Receipt date', today(), 'YYYYMMDD', 'date'),
+      field('SKU', 'WIDGET', 'Existing stock item', 'id'),
+      field('Quantity', '100', 'Integer units', 'uint'),
+      field('Inventory account', 'INVENTORY', 'Existing asset account', 'id'),
+      field('Offset account', 'AP', 'Existing offset account', 'id'),
+      field('Memo', 'Supplier delivery'),
+    ],
+  },
+  {
+    name: 'ADJUST',
+    label: 'Adjust inventory',
+    hint: 'Apply a signed stock correction and post its value. Negative quantities reduce stock.',
+    fields: [
+      field('Reference', 'ADJUST_001', 'Unique adjustment reference', 'id'),
+      field('Adjustment date', today(), 'YYYYMMDD', 'date'),
+      field('SKU', 'WIDGET', 'Existing stock item', 'id'),
+      field('Quantity change', '-2', 'Signed nonzero integer', 'signed'),
+      field('Inventory account', 'INVENTORY', 'Existing asset account', 'id'),
+      field('Adjustment account', 'ADJUSTMENT', 'Existing adjustment account', 'id'),
+      field('Memo', 'Cycle count correction'),
+    ],
+  },
+  {
+    name: 'CUSTOMER',
+    label: 'Create customer',
+    hint: 'Register a customer before creating invoices.',
+    fields: [
+      field('Customer ID', 'ACME', 'Unique customer identifier', 'id'),
+      field('Customer name', 'Acme Manufacturing'),
+      field('Email', 'accounts@example.com'),
+    ],
+  },
+  {
+    name: 'INVOICE',
+    label: 'Create draft invoice',
+    hint: 'Create a draft document, then add lines before issuing it.',
+    fields: [
+      field('Invoice ID', 'INV_001', 'Unique invoice identifier', 'id'),
+      field('Customer ID', 'ACME', 'Existing customer', 'id'),
+      field('Invoice date', today(), 'YYYYMMDD', 'date'),
+      field('Due date', today(), 'YYYYMMDD; on or after invoice date', 'date'),
+    ],
+  },
+  {
+    name: 'LINE',
+    label: 'Add invoice line',
+    hint: 'Add an item, quantity, selling price and tax rate to a draft invoice.',
+    fields: [
+      field('Invoice ID', 'INV_001', 'Existing draft invoice', 'id'),
+      field('SKU', 'WIDGET', 'Existing stock item', 'id'),
+      field('Quantity', '2', 'Integer units', 'uint'),
+      field('Unit price', '4500', 'Integer minor units', 'uint'),
+      field('Tax basis points', '1000', '1000 = 10%; 0 = no tax', 'uint'),
+    ],
+  },
+  {
+    name: 'ISSUE',
+    label: 'Issue invoice',
+    hint: 'Validate stock and post receivables, revenue, tax and cost of goods as one operation.',
+    fields: [
+      field('Invoice ID', 'INV_001', 'Existing draft invoice', 'id'),
+      field('Receivables account', 'AR', 'Existing account', 'id'),
+      field('Revenue account', 'SALES', 'Existing account', 'id'),
+      field('Tax account', 'TAX', 'Existing account', 'id'),
+      field('Cost of goods account', 'COGS', 'Existing account', 'id'),
+      field('Inventory account', 'INVENTORY', 'Existing account', 'id'),
+    ],
+  },
+  {
+    name: 'PAY',
+    label: 'Record invoice payment',
+    hint: 'Apply payment to an open invoice. The engine rejects duplicate references and overpayment.',
+    fields: [
+      field('Payment reference', 'PAY_001', 'Unique payment reference', 'id'),
+      field('Invoice ID', 'INV_001', 'Existing open invoice', 'id'),
+      field('Payment date', today(), 'YYYYMMDD', 'date'),
+      field('Amount', '9900', 'Integer minor units', 'uint'),
+      field('Cash account', 'CASH', 'Existing account', 'id'),
+      field('Receivables account', 'AR', 'Existing account', 'id'),
+    ],
+  },
+  {
+    name: 'VOID',
+    label: 'Void draft invoice',
+    hint: 'Void an unissued draft. Issued invoices cannot be voided with this operation.',
+    fields: [field('Invoice ID', 'INV_001', 'Existing draft invoice', 'id')],
+  },
+];

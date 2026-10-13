@@ -1,14 +1,16 @@
 {
   "name": "meridian-console-tooling",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
-  "description": "Development-only formatting for the dependency-free browser console",
+  "description": "Development-only formatting and browser regression checks for the dependency-free console",
   "license": "UNLICENSED",
   "scripts": {
     "lint": "prettier --check web",
-    "format": "prettier --write web"
+    "format": "prettier --write web",
+    "test:browser": "node --test tests/browser/console.mjs"
   },
   "devDependencies": {
-    "prettier": "3.9.10"
+    "prettier": "3.9.10",
+    "playwright": "1.64.0"
   }
 }
